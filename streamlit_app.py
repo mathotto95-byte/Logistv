@@ -45,9 +45,20 @@ def int_param(name: str, default: int, minimum: int, maximum: int) -> int:
 
 def add_streamlit_embed_params(url: str) -> str:
     parts = urlsplit(url)
-    params = dict(parse_qsl(parts.query, keep_blank_values=True))
-    params.setdefault("embed", "true")
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(params), parts.fragment))
+    query_items = parse_qsl(parts.query, keep_blank_values=True)
+    if not any(key == "embed" for key, _ in query_items):
+        query_items.insert(0, ("embed", "true"))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment))
+
+
+def add_query_params(url: str, params_to_add: dict[str, str | int]) -> str:
+    parts = urlsplit(url)
+    query_items = parse_qsl(parts.query, keep_blank_values=True)
+    existing = {key for key, _ in query_items}
+    for key, value in params_to_add.items():
+        if key not in existing:
+            query_items.append((key, str(value)))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment))
 
 
 def inject_css() -> None:
@@ -130,10 +141,107 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
     title = str(panel.get("title") or "TV Operacional")
     description = str(panel.get("description") or "Painel operacional")
     url = str(panel.get("url") or "")
-    iframe_url = add_streamlit_embed_params(url)
+    fallback_urls = panel.get("fallback_urls") or []
+    candidate_urls = [url, *fallback_urls]
+    iframe_urls = [add_streamlit_embed_params(str(candidate)) for candidate in candidate_urls if str(candidate).strip()]
     now = time.strftime("%d/%m/%Y %H:%M")
     next_index = (panel_index + 1) % max(total_panels, 1)
     next_url = f"?inicio={next_index}&tempo={seconds}&_={int(time.time())}"
+    if str(panel.get("open_mode") or "").lower() == "top_redirect":
+        return_url = str(panel.get("return_url") or f"https://logistv.streamlit.app/?inicio={next_index}")
+        return_url = add_query_params(return_url, {"tempo": seconds, "_": int(time.time())})
+        redirect_url = add_query_params(
+            url,
+            {
+                "tempo": seconds,
+                "retorno": return_url,
+                "retorno_tempo": seconds,
+            },
+        )
+        components.html(
+            f"""
+            <!doctype html>
+            <html lang="pt-BR">
+            <head>
+              <meta charset="utf-8">
+              <style>
+                html, body {{
+                  width: 100%;
+                  height: 100%;
+                  margin: 0;
+                  background: #030914;
+                  color: #f8fafc;
+                  font-family: Arial, Helvetica, sans-serif;
+                  overflow: hidden;
+                }}
+                .redirect {{
+                  width: 100%;
+                  height: 100vh;
+                  min-height: 940px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 28px;
+                  background: #030914;
+                }}
+                .box {{
+                  width: min(780px, 92vw);
+                  padding: 24px;
+                  text-align: center;
+                  background: #071526;
+                  border: 1px solid rgba(214,169,51,0.42);
+                  border-radius: 8px;
+                }}
+                h1 {{
+                  margin: 0;
+                  color: #f8fafc;
+                  font-size: 34px;
+                  line-height: 1.1;
+                }}
+                p {{
+                  margin: 10px 0 0;
+                  color: rgba(248,250,252,0.76);
+                  font-size: 16px;
+                  font-weight: 700;
+                }}
+                a {{
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  min-height: 42px;
+                  margin-top: 18px;
+                  padding: 0 16px;
+                  border: 1px solid #d6a933;
+                  border-radius: 8px;
+                  background: #0f2438;
+                  color: #f8fafc;
+                  font-size: 14px;
+                  font-weight: 900;
+                  text-decoration: none;
+                }}
+              </style>
+            </head>
+            <body>
+              <main class="redirect">
+                <section class="box">
+                  <h1>{html.escape(title)}</h1>
+                  <p>{html.escape(description)} | abrindo em tela inteira para evitar bloqueio de iframe.</p>
+                  <p>Se nao abrir automaticamente, clique abaixo.</p>
+                  <a href="{html.escape(redirect_url, quote=True)}" target="_top">Abrir Coupa agora</a>
+                </section>
+              </main>
+              <script>
+                setTimeout(() => {{
+                  window.parent.location.href = {json.dumps(redirect_url)};
+                }}, 900);
+              </script>
+            </body>
+            </html>
+            """,
+            height=1020,
+            scrolling=False,
+        )
+        return
     player_html = f"""
     <!doctype html>
     <html lang="pt-BR">
@@ -277,11 +385,11 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
           </div>
         </header>
         <section class="stage">
-          <iframe id="frame" src="{html.escape(iframe_url, quote=True)}" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <iframe id="frame" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
           <div id="overlay" class="overlay">
             <div class="box">
               <h2>Carregando painel</h2>
-              <p>Se a tela continuar branca, o Streamlit bloqueou o painel embutido. Use Abrir direto para validar este painel.</p>
+              <p id="overlay-text">Tentando abrir o painel embutido.</p>
               <a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">Abrir painel direto</a>
             </div>
           </div>
@@ -289,11 +397,35 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
       </main>
       <script>
         const overlay = document.getElementById("overlay");
+        const overlayText = document.getElementById("overlay-text");
         const frame = document.getElementById("frame");
         const player = document.getElementById("player");
         const nextUrl = {json.dumps(next_url)};
+        const iframeUrls = {json.dumps(iframe_urls)};
+        let iframeIndex = 0;
+        let loadTimer = null;
+
+        function loadFrame(index) {{
+          iframeIndex = index;
+          overlay.classList.remove("hidden");
+          overlayText.textContent = index === 0
+            ? "Tentando abrir o painel embutido."
+            : "Tentando rota alternativa do painel.";
+          frame.src = iframeUrls[index];
+          clearTimeout(loadTimer);
+          loadTimer = setTimeout(() => {{
+            if (iframeIndex + 1 < iframeUrls.length) {{
+              loadFrame(iframeIndex + 1);
+              return;
+            }}
+            overlay.classList.remove("hidden");
+            overlayText.textContent = "Se a tela continuar branca, o Streamlit bloqueou este painel embutido. Use Abrir direto para validar o Coupa.";
+          }}, 9000);
+        }}
+
         frame.addEventListener("load", () => {{
-          setTimeout(() => overlay.classList.add("hidden"), 1200);
+          clearTimeout(loadTimer);
+          setTimeout(() => overlay.classList.add("hidden"), 1800);
         }});
         document.getElementById("next").addEventListener("click", () => {{
           window.parent.location.search = nextUrl;
@@ -314,6 +446,7 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
         setTimeout(() => {{
           window.parent.location.search = nextUrl;
         }}, {int(seconds) * 1000});
+        loadFrame(0);
       </script>
     </body>
     </html>
