@@ -14,6 +14,15 @@ Projeto estatico para exibir paineis operacionais na TV sem depender de outro ap
 - Documentos RW: vencimentos proximos.
 - Controle Integrado: Coupa - Tarifas e Volumes.
 
+## Publicacao no Streamlit Cloud
+
+Use estes campos:
+
+- Repository: `mathotto95-byte/Logistv`
+- Branch: `main`
+- Main file path: `streamlit_app.py`
+- App URL: `logistv`
+
 ## Publicacao no GitHub Pages
 
 1. Criar um repositorio vazio no GitHub, por exemplo `TV-Operacional`.
