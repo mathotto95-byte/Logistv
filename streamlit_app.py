@@ -94,7 +94,7 @@ def build_panel_payload(panels: list[dict], default_seconds: int) -> list[dict]:
                 "url": str(panel.get("url") or ""),
                 "embedUrl": add_streamlit_embed_params(str(panel.get("url") or "")),
                 "seconds": max(15, min(900, seconds)),
-                "zoom": max(0.65, min(1.25, float(pd.to_numeric(pd.Series([panel.get("zoom", 1)]), errors="coerce").fillna(1).iloc[0]))),
+                "zoom": max(0.5, min(1.25, float(pd.to_numeric(pd.Series([panel.get("zoom", 0.82)]), errors="coerce").fillna(0.82).iloc[0]))),
             }
         )
     return payload
@@ -122,30 +122,37 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         .player {{
           width: 100%;
           height: 100vh;
-          min-height: 1000px;
-          display: grid;
-          grid-template-rows: auto 1fr;
-          gap: 4px;
-          padding: 4px;
+          min-height: 0;
+          position: relative;
+          padding: 0;
           background: #030914;
         }}
         .player:fullscreen {{
           min-height: 100vh;
-          padding: 4px;
+          padding: 0;
         }}
         .player:fullscreen .topbar {{
-          min-height: 42px;
+          min-height: 34px;
         }}
         .topbar {{
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          z-index: 5;
           display: flex;
           justify-content: flex-end;
-          gap: 8px;
+          gap: 6px;
           align-items: center;
-          min-height: 42px;
-          padding: 4px 8px;
-          background: #071526;
+          min-height: 34px;
+          padding: 3px 6px;
+          background: rgba(7, 21, 38, 0.72);
           border: 1px solid rgba(214,169,51,0.42);
-          border-radius: 8px;
+          border-radius: 6px;
+          opacity: 0.72;
+          transition: opacity .15s ease;
+        }}
+        .topbar:hover {{
+          opacity: 1;
         }}
         .title {{
           color: #f8fafc;
@@ -161,49 +168,50 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         }}
         .actions {{
           display: flex;
-          gap: 8px;
+          gap: 6px;
           align-items: center;
           flex-wrap: wrap;
           justify-content: flex-end;
         }}
         .zoom-badge {{
-          min-height: 32px;
+          min-height: 28px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 70px;
-          padding: 0 10px;
+          min-width: 54px;
+          padding: 0 8px;
           border: 1px solid rgba(214,169,51,0.42);
           border-radius: 8px;
           background: #071526;
           color: #d6a933;
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 900;
           white-space: nowrap;
         }}
         button, a.button {{
-          min-height: 32px;
+          min-height: 28px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0 10px;
+          padding: 0 8px;
           border: 1px solid #d6a933;
           border-radius: 8px;
           background: #0f2438;
           color: #f8fafc;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 900;
           text-decoration: none;
           cursor: pointer;
           white-space: nowrap;
         }}
         .stage {{
-          position: relative;
-          min-height: 0;
+          position: absolute;
+          inset: 0;
+          min-height: 100%;
           overflow: hidden;
           background: #030914;
-          border: 1px solid rgba(214,169,51,0.32);
-          border-radius: 8px;
+          border: 0;
+          border-radius: 0;
         }}
         .frame-viewport {{
           position: absolute;
@@ -324,7 +332,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         }}
 
         function applyZoom(zoom) {{
-          activeZoom = Math.max(0.65, Math.min(1.25, Number(zoom) || 1));
+          activeZoom = Math.max(0.5, Math.min(1.25, Number(zoom) || 0.82));
           frame.style.transform = `scale(${{activeZoom}})`;
           frame.style.width = `${{100 / activeZoom}}%`;
           frame.style.height = `${{100 / activeZoom}}%`;
