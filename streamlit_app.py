@@ -125,24 +125,24 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           min-height: 1000px;
           display: grid;
           grid-template-rows: auto 1fr;
-          gap: 8px;
-          padding: 8px;
+          gap: 4px;
+          padding: 4px;
           background: #030914;
         }}
         .player:fullscreen {{
           min-height: 100vh;
-          padding: 6px;
+          padding: 4px;
         }}
         .player:fullscreen .topbar {{
-          min-height: 64px;
+          min-height: 42px;
         }}
         .topbar {{
-          display: grid;
-          grid-template-columns: 1fr auto;
-          gap: 12px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
           align-items: center;
-          min-height: 72px;
-          padding: 10px 14px;
+          min-height: 42px;
+          padding: 4px 8px;
           background: #071526;
           border: 1px solid rgba(214,169,51,0.42);
           border-radius: 8px;
@@ -163,9 +163,11 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           display: flex;
           gap: 8px;
           align-items: center;
+          flex-wrap: wrap;
+          justify-content: flex-end;
         }}
         .zoom-badge {{
-          min-height: 38px;
+          min-height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -180,16 +182,16 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           white-space: nowrap;
         }}
         button, a.button {{
-          min-height: 38px;
+          min-height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0 12px;
+          padding: 0 10px;
           border: 1px solid #d6a933;
           border-radius: 8px;
           background: #0f2438;
           color: #f8fafc;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 900;
           text-decoration: none;
           cursor: pointer;
@@ -266,10 +268,6 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
     <body>
       <main id="player" class="player">
         <header class="topbar">
-          <div>
-            <div id="title" class="title">TV Operacional</div>
-            <div id="subtitle" class="subtitle">Espelhando paineis existentes</div>
-          </div>
           <div class="actions">
             <button id="fullscreen" type="button">Tela cheia</button>
             <button id="previous" type="button">Anterior</button>
@@ -303,8 +301,6 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
 
         const player = document.getElementById("player");
         const frame = document.getElementById("panel-frame");
-        const title = document.getElementById("title");
-        const subtitle = document.getElementById("subtitle");
         const openDirect = document.getElementById("open-direct");
         const loading = document.getElementById("loading");
         const loadingTitle = document.getElementById("loading-title");
@@ -346,10 +342,8 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           const panel = currentPanel();
           startedAt = Date.now();
           applyZoom(panel.zoom || 1);
-          title.textContent = panel.title;
-          subtitle.textContent = `${{panel.description}} | Espelho do painel original | Alterna a cada ${{panel.seconds}}s`;
           openDirect.href = panel.url;
-          loadingTitle.textContent = `Carregando ${{panel.title}}`;
+          loadingTitle.textContent = "Carregando painel";
           loading.classList.remove("hidden");
           progressBar.style.width = "0%";
           frame.src = panel.embedUrl;
