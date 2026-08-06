@@ -3,8 +3,8 @@
     {
       "title": "Documentos RW",
       "description": "Vencimentos proximos",
-      "url": "https://documentosrw-ibfyqqvrsxzawehbbiq8ge.streamlit.app/?painel=documentos",
-      "zoom": 0.94,
+      "url": "https://documentosrw-ibfyqqvrsxzawehbbiq8ge.streamlit.app/?painel=documentos&embed_tv=1",
+      "zoom": 1,
       "seconds": 60,
       "enabled": true
     },
