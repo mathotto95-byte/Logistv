@@ -1,0 +1,18 @@
+{
+  "panels": [
+    {
+      "title": "Documentos RW",
+      "description": "Vencimentos proximos",
+      "url": "https://documentosrw-ibfyqqvrsxzawehbbiq8ge.streamlit.app/?painel=documentos",
+      "seconds": 60,
+      "enabled": true
+    },
+    {
+      "title": "Coupa - Tarifas e Volumes",
+      "description": "Resumo TV de saldos Coupa",
+      "url": "https://controle-integrado.streamlit.app/?tv=documentos-coupa&painel=coupa",
+      "seconds": 60,
+      "enabled": true
+    }
+  ]
+}

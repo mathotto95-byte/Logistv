@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TV Operacional</title>
+  <style>
+    :root {
+      --bg: #030914;
+      --panel: #071526;
+      --line: rgba(214, 169, 51, 0.42);
+      --gold: #d6a933;
+      --text: #f8fafc;
+      --muted: rgba(248, 250, 252, 0.72);
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+    }
+
+    .shell {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+      padding: 8px;
+      background: var(--bg);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      min-height: 70px;
+      padding: 10px 14px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(22px, 2.3vw, 34px);
+      line-height: 1.05;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: clamp(13px, 1.1vw, 16px);
+      font-weight: 700;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button,
+    a.button {
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 13px;
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      background: #0f2438;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .stage {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: #020711;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #030914;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: rgba(3, 9, 20, 0.92);
+      text-align: center;
+      z-index: 5;
+    }
+
+    .overlay.visible {
+      display: flex;
+    }
+
+    .message {
+      width: min(760px, 92vw);
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .message h2 {
+      margin: 0 0 8px;
+      color: var(--gold);
+      font-size: 26px;
+      line-height: 1.1;
+    }
+
+    .message p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .message .button {
+      margin-top: 14px;
+    }
+
+    .progress {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.10);
+      z-index: 6;
+    }
+
+    .progress span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: var(--gold);
+      transition: width 1s linear;
+    }
+
+    @media (max-width: 800px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        justify-content: stretch;
+      }
+
+      button,
+      a.button {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <h1 id="panel-title" class="title">TV Operacional</h1>
+        <div id="panel-subtitle" class="subtitle">Carregando lista de paineis...</div>
+      </div>
+      <nav class="actions" aria-label="Acoes da TV">
+        <button id="fullscreen-button" type="button">Tela cheia</button>
+        <button id="next-button" type="button">Proximo</button>
+        <a id="open-button" class="button" href="#" target="_blank" rel="noopener">Abrir direto</a>
+      </nav>
+    </header>
+
+    <section class="stage" aria-label="Painel exibido">
+      <iframe id="panel-frame" title="Painel atual" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      <div id="overlay" class="overlay">
+        <div class="message">
+          <h2 id="overlay-title">Carregando painel</h2>
+          <p id="overlay-text">Aguarde alguns segundos.</p>
+          <a id="overlay-link" class="button" href="#" target="_blank" rel="noopener">Abrir painel direto</a>
+        </div>
+      </div>
+      <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+    </section>
+  </main>
+
+  <script>
+    const DEFAULT_SECONDS = 60;
+    const FRAME_TIMEOUT_SECONDS = 18;
+    const state = {
+      panels: [],
+      index: 0,
+      startedAt: Date.now(),
+      currentSeconds: DEFAULT_SECONDS,
+      frameLoaded: false,
+      timer: null,
+      progressTimer: null,
+      timeoutTimer: null
+    };
+
+    const elements = {
+      title: document.getElementById("panel-title"),
+      subtitle: document.getElementById("panel-subtitle"),
+      frame: document.getElementById("panel-frame"),
+      overlay: document.getElementById("overlay"),
+      overlayTitle: document.getElementById("overlay-title"),
+      overlayText: document.getElementById("overlay-text"),
+      overlayLink: document.getElementById("overlay-link"),
+      openButton: document.getElementById("open-button"),
+      nextButton: document.getElementById("next-button"),
+      fullscreenButton: document.getElementById("fullscreen-button"),
+      progressBar: document.getElementById("progress-bar")
+    };
+
+    function queryValue(name, fallback = "") {
+      return new URLSearchParams(window.location.search).get(name) || fallback;
+    }
+
+    function cacheBustedUrl(url) {
+      const parsed = new URL(url, window.location.href);
+      parsed.searchParams.set("_tv_refresh", String(Date.now()));
+      return parsed.toString();
+    }
+
+    function showOverlay(title, text, url) {
+      elements.overlayTitle.textContent = title;
+      elements.overlayText.textContent = text;
+      elements.overlayLink.href = url || "#";
+      elements.overlay.classList.add("visible");
+    }
+
+    function hideOverlay() {
+      elements.overlay.classList.remove("visible");
+    }
+
+    function updateProgress() {
+      const elapsed = Math.max(0, Date.now() - state.startedAt);
+      const percent = Math.min(100, elapsed / (state.currentSeconds * 1000) * 100);
+      elements.progressBar.style.width = `${percent}%`;
+    }
+
+    function selectPanel(nextIndex) {
+      if (!state.panels.length) {
+        showOverlay("Nenhum painel configurado", "Verifique o arquivo panels.json.", "#");
+        return;
+      }
+
+      clearTimeout(state.timer);
+      clearInterval(state.progressTimer);
+      clearTimeout(state.timeoutTimer);
+
+      state.index = (nextIndex + state.panels.length) % state.panels.length;
+      const panel = state.panels[state.index];
+      const seconds = Number(panel.seconds || queryValue("tempo", DEFAULT_SECONDS) || DEFAULT_SECONDS);
+      state.currentSeconds = Math.max(15, Math.min(900, seconds));
+      state.startedAt = Date.now();
+      state.frameLoaded = false;
+
+      const url = cacheBustedUrl(panel.url);
+      elements.title.textContent = panel.title || "TV Operacional";
+      elements.subtitle.textContent = `${panel.description || "Painel operacional"} | Atualizacao da tela: ${new Date().toLocaleString("pt-BR")}`;
+      elements.openButton.href = panel.url;
+      elements.overlayLink.href = panel.url;
+      elements.frame.src = url;
+      elements.progressBar.style.width = "0%";
+      showOverlay("Carregando painel", panel.title || "Aguarde alguns segundos.", panel.url);
+
+      state.timeoutTimer = setTimeout(() => {
+        if (!state.frameLoaded) {
+          showOverlay(
+            "Painel demorou para carregar",
+            "Se aparecer erro de redirecionamento no Streamlit, use Abrir direto ou recarregue a TV.",
+            panel.url
+          );
+        }
+      }, FRAME_TIMEOUT_SECONDS * 1000);
+
+      state.progressTimer = setInterval(updateProgress, 1000);
+      state.timer = setTimeout(() => selectPanel(state.index + 1), state.currentSeconds * 1000);
+    }
+
+    async function loadPanels() {
+      try {
+        const response = await fetch(`panels.json?_=${Date.now()}`, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        state.panels = Array.isArray(data.panels) ? data.panels.filter(panel => panel.enabled !== false && panel.url) : [];
+        selectPanel(Number(queryValue("inicio", "0")) || 0);
+      } catch (error) {
+        showOverlay("Nao foi possivel carregar a TV", `Falha ao ler panels.json: ${error.message}`, "#");
+      }
+    }
+
+    elements.frame.addEventListener("load", () => {
+      state.frameLoaded = true;
+      hideOverlay();
+    });
+
+    elements.nextButton.addEventListener("click", () => selectPanel(state.index + 1));
+
+    elements.fullscreenButton.addEventListener("click", async () => {
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        } else {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (error) {
+        console.error("Nao foi possivel alternar tela cheia", error);
+      }
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      elements.fullscreenButton.textContent = document.fullscreenElement ? "Sair tela cheia" : "Tela cheia";
+    });
+
+    loadPanels();
+  </script>
+</body>
+</html>
