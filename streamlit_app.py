@@ -301,7 +301,8 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
       </main>
       <script>
         const panels = {json.dumps(panel_payload, ensure_ascii=False)};
-        let index = {start_index};
+        const storagePrefix = "logistv:v1:";
+        let index = initialIndex({start_index});
         let startedAt = Date.now();
         let switchTimer = null;
         let progressTimer = null;
@@ -324,6 +325,37 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           return panels[(index + panels.length) % panels.length];
         }}
 
+        function storageGet(key, fallback = "") {{
+          try {{
+            return window.localStorage.getItem(storagePrefix + key) ?? fallback;
+          }} catch (error) {{
+            return fallback;
+          }}
+        }}
+
+        function storageSet(key, value) {{
+          try {{
+            window.localStorage.setItem(storagePrefix + key, String(value));
+          }} catch (error) {{}}
+        }}
+
+        function initialIndex(defaultIndex) {{
+          const saved = Number(storageGet("lastIndex", defaultIndex));
+          if (Number.isFinite(saved) && panels.length) {{
+            return Math.max(0, Math.min(panels.length - 1, Math.trunc(saved)));
+          }}
+          return defaultIndex;
+        }}
+
+        function panelStorageKey(panel) {{
+          return `zoom:${{panel.url || panel.title || "painel"}}`;
+        }}
+
+        function savedZoomFor(panel) {{
+          const saved = Number(storageGet(panelStorageKey(panel), ""));
+          return Number.isFinite(saved) && saved > 0 ? saved : Number(panel.zoom || 0.82);
+        }}
+
         function updateProgress() {{
           const panel = currentPanel();
           const elapsed = Date.now() - startedAt;
@@ -331,12 +363,15 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           progressBar.style.width = `${{percent}}%`;
         }}
 
-        function applyZoom(zoom) {{
+        function applyZoom(zoom, persist = true) {{
           activeZoom = Math.max(0.5, Math.min(1.25, Number(zoom) || 0.82));
           frame.style.transform = `scale(${{activeZoom}})`;
           frame.style.width = `${{100 / activeZoom}}%`;
           frame.style.height = `${{100 / activeZoom}}%`;
           zoomBadge.textContent = `${{Math.round(activeZoom * 100)}}%`;
+          if (persist && panels.length) {{
+            storageSet(panelStorageKey(currentPanel()), activeZoom.toFixed(2));
+          }}
         }}
 
         function changeZoom(delta) {{
@@ -348,8 +383,9 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           clearInterval(progressTimer);
           index = (nextIndex + panels.length) % panels.length;
           const panel = currentPanel();
+          storageSet("lastIndex", index);
           startedAt = Date.now();
-          applyZoom(panel.zoom || 1);
+          applyZoom(savedZoomFor(panel), false);
           openDirect.href = panel.url;
           loadingTitle.textContent = "Carregando painel";
           loading.classList.remove("hidden");
