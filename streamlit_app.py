@@ -96,6 +96,7 @@ def build_panel_payload(panels: list[dict], default_seconds: int) -> list[dict]:
                 "url": str(panel.get("url") or ""),
                 "embedUrl": add_streamlit_embed_params(str(panel.get("url") or "")),
                 "seconds": max(15, min(900, seconds)),
+                "zoom": max(0.65, min(1.25, float(pd.to_numeric(pd.Series([panel.get("zoom", 1)]), errors="coerce").fillna(1).iloc[0]))),
             }
         )
     return payload
@@ -130,6 +131,13 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           padding: 8px;
           background: #030914;
         }}
+        .player:fullscreen {{
+          min-height: 100vh;
+          padding: 6px;
+        }}
+        .player:fullscreen .topbar {{
+          min-height: 64px;
+        }}
         .topbar {{
           display: grid;
           grid-template-columns: 1fr auto;
@@ -158,6 +166,21 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           gap: 8px;
           align-items: center;
         }}
+        .zoom-badge {{
+          min-height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 70px;
+          padding: 0 10px;
+          border: 1px solid rgba(214,169,51,0.42);
+          border-radius: 8px;
+          background: #071526;
+          color: #d6a933;
+          font-size: 13px;
+          font-weight: 900;
+          white-space: nowrap;
+        }}
         button, a.button {{
           min-height: 38px;
           display: inline-flex;
@@ -182,11 +205,18 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           border: 1px solid rgba(214,169,51,0.32);
           border-radius: 8px;
         }}
+        .frame-viewport {{
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #030914;
+        }}
         #panel-frame {{
           width: 100%;
           height: 100%;
           border: 0;
           background: #030914;
+          transform-origin: top left;
         }}
         .loading {{
           position: absolute;
@@ -246,11 +276,16 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
             <button id="fullscreen" type="button">Tela cheia</button>
             <button id="previous" type="button">Anterior</button>
             <button id="next" type="button">Proximo</button>
+            <button id="zoom-out" type="button">Zoom -</button>
+            <span id="zoom-badge" class="zoom-badge">100%</span>
+            <button id="zoom-in" type="button">Zoom +</button>
             <a id="open-direct" class="button" href="#" target="_blank" rel="noopener">Abrir direto</a>
           </div>
         </header>
         <section class="stage">
-          <iframe id="panel-frame" title="Painel atual" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <div class="frame-viewport">
+            <iframe id="panel-frame" title="Painel atual" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          </div>
           <div id="loading" class="loading">
             <div class="box">
               <h2 id="loading-title">Carregando painel</h2>
@@ -266,6 +301,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         let startedAt = Date.now();
         let switchTimer = null;
         let progressTimer = null;
+        let activeZoom = 1;
 
         const player = document.getElementById("player");
         const frame = document.getElementById("panel-frame");
@@ -275,6 +311,12 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         const loading = document.getElementById("loading");
         const loadingTitle = document.getElementById("loading-title");
         const progressBar = document.getElementById("progress-bar");
+        const zoomBadge = document.getElementById("zoom-badge");
+
+        if (window.frameElement) {{
+          window.frameElement.setAttribute("allowfullscreen", "true");
+          window.frameElement.setAttribute("allow", "fullscreen");
+        }}
 
         function currentPanel() {{
           return panels[(index + panels.length) % panels.length];
@@ -287,12 +329,25 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           progressBar.style.width = `${{percent}}%`;
         }}
 
+        function applyZoom(zoom) {{
+          activeZoom = Math.max(0.65, Math.min(1.25, Number(zoom) || 1));
+          frame.style.transform = `scale(${{activeZoom}})`;
+          frame.style.width = `${{100 / activeZoom}}%`;
+          frame.style.height = `${{100 / activeZoom}}%`;
+          zoomBadge.textContent = `${{Math.round(activeZoom * 100)}}%`;
+        }}
+
+        function changeZoom(delta) {{
+          applyZoom(Math.round((activeZoom + delta) * 100) / 100);
+        }}
+
         function showPanel(nextIndex) {{
           clearTimeout(switchTimer);
           clearInterval(progressTimer);
           index = (nextIndex + panels.length) % panels.length;
           const panel = currentPanel();
           startedAt = Date.now();
+          applyZoom(panel.zoom || 1);
           title.textContent = panel.title;
           subtitle.textContent = `${{panel.description}} | Espelho do painel original | Alterna a cada ${{panel.seconds}}s`;
           openDirect.href = panel.url;
@@ -310,15 +365,22 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
 
         document.getElementById("next").addEventListener("click", () => showPanel(index + 1));
         document.getElementById("previous").addEventListener("click", () => showPanel(index - 1));
+        document.getElementById("zoom-out").addEventListener("click", () => changeZoom(-0.05));
+        document.getElementById("zoom-in").addEventListener("click", () => changeZoom(0.05));
         document.getElementById("fullscreen").addEventListener("click", async () => {{
           try {{
             if (document.fullscreenElement) {{
               await document.exitFullscreen();
             }} else {{
-              await player.requestFullscreen();
+              const target = player.requestFullscreen ? player : document.documentElement;
+              await target.requestFullscreen();
             }}
           }} catch (error) {{
-            console.error("Nao foi possivel abrir tela cheia", error);
+            try {{
+              await window.parent.document.documentElement.requestFullscreen();
+            }} catch (parentError) {{
+              console.error("Nao foi possivel abrir tela cheia", error, parentError);
+            }}
           }}
         }});
 
