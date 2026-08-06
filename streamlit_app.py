@@ -1,6 +1,5 @@
 import html
 import json
-import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -24,6 +23,11 @@ def query_param(name: str, default: str = "") -> str:
     return str(value if value not in [None, ""] else default)
 
 
+def int_param(name: str, default: int, minimum: int, maximum: int) -> int:
+    value = pd.to_numeric(pd.Series([query_param(name, str(default))]), errors="coerce").fillna(default).iloc[0]
+    return max(minimum, min(maximum, int(value)))
+
+
 def load_panels() -> list[dict]:
     if not PANELS_PATH.exists():
         return []
@@ -38,36 +42,25 @@ def load_panels() -> list[dict]:
     ]
 
 
-def int_param(name: str, default: int, minimum: int, maximum: int) -> int:
-    value = pd.to_numeric(pd.Series([query_param(name, str(default))]), errors="coerce").fillna(default).iloc[0]
-    return max(minimum, min(maximum, int(value)))
-
-
 def add_streamlit_embed_params(url: str) -> str:
     parts = urlsplit(url)
     query_items = parse_qsl(parts.query, keep_blank_values=True)
-    if not any(key == "embed" for key, _ in query_items):
+    keys = {key for key, _ in query_items}
+    if "embed" not in keys:
         query_items.insert(0, ("embed", "true"))
+    if "embed_options" not in keys:
+        query_items.insert(1, ("embed_options", "disable_scrolling"))
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment))
 
 
-def add_query_params(url: str, params_to_add: dict[str, str | int]) -> str:
-    parts = urlsplit(url)
-    query_items = parse_qsl(parts.query, keep_blank_values=True)
-    existing = {key for key, _ in query_items}
-    for key, value in params_to_add.items():
-        if key not in existing:
-            query_items.append((key, str(value)))
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment))
-
-
-def inject_css() -> None:
+def inject_shell_css() -> None:
     st.markdown(
         """
         <style>
         html, body, .stApp {
             background: #030914 !important;
             color: #f8fafc !important;
+            overflow: hidden !important;
         }
         [data-testid="stSidebar"],
         [data-testid="stToolbar"],
@@ -80,56 +73,11 @@ def inject_css() -> None:
         }
         .block-container {
             max-width: 100% !important;
-            padding: 0.45rem 0.6rem 0.6rem !important;
+            padding: 0 !important;
             background: #030914;
-        }
-        .tv-header {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 14px;
-            align-items: center;
-            min-height: 70px;
-            margin-bottom: 8px;
-            padding: 10px 14px;
-            background: #071526;
-            border: 1px solid rgba(214,169,51,0.42);
-            border-radius: 8px;
-        }
-        .tv-title {
-            color: #f8fafc;
-            font-size: 30px;
-            font-weight: 900;
-            line-height: 1.05;
-        }
-        .tv-subtitle {
-            color: rgba(248,250,252,0.74);
-            font-size: 14px;
-            font-weight: 700;
-            margin-top: 4px;
-        }
-        .tv-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .tv-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 38px;
-            padding: 0 12px;
-            border: 1px solid #d6a933;
-            border-radius: 8px;
-            background: #0f2438;
-            color: #f8fafc !important;
-            font-size: 13px;
-            font-weight: 800;
-            text-decoration: none !important;
-            white-space: nowrap;
         }
         iframe {
             background: #030914 !important;
-            border-radius: 8px;
         }
         </style>
         """,
@@ -137,111 +85,25 @@ def inject_css() -> None:
     )
 
 
-def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int) -> None:
-    title = str(panel.get("title") or "TV Operacional")
-    description = str(panel.get("description") or "Painel operacional")
-    url = str(panel.get("url") or "")
-    fallback_urls = panel.get("fallback_urls") or []
-    candidate_urls = [url, *fallback_urls]
-    iframe_urls = [add_streamlit_embed_params(str(candidate)) for candidate in candidate_urls if str(candidate).strip()]
-    now = time.strftime("%d/%m/%Y %H:%M")
-    next_index = (panel_index + 1) % max(total_panels, 1)
-    next_url = f"?inicio={next_index}&tempo={seconds}&_={int(time.time())}"
-    if str(panel.get("open_mode") or "").lower() == "top_redirect":
-        return_url = str(panel.get("return_url") or f"https://logistv.streamlit.app/?inicio={next_index}")
-        return_url = add_query_params(return_url, {"tempo": seconds, "_": int(time.time())})
-        redirect_url = add_query_params(
-            url,
+def build_panel_payload(panels: list[dict], default_seconds: int) -> list[dict]:
+    payload = []
+    for panel in panels:
+        seconds = int(pd.to_numeric(pd.Series([panel.get("seconds", default_seconds)]), errors="coerce").fillna(default_seconds).iloc[0])
+        payload.append(
             {
-                "tempo": seconds,
-                "retorno": return_url,
-                "retorno_tempo": seconds,
-            },
+                "title": str(panel.get("title") or "Painel"),
+                "description": str(panel.get("description") or ""),
+                "url": str(panel.get("url") or ""),
+                "embedUrl": add_streamlit_embed_params(str(panel.get("url") or "")),
+                "seconds": max(15, min(900, seconds)),
+            }
         )
-        components.html(
-            f"""
-            <!doctype html>
-            <html lang="pt-BR">
-            <head>
-              <meta charset="utf-8">
-              <style>
-                html, body {{
-                  width: 100%;
-                  height: 100%;
-                  margin: 0;
-                  background: #030914;
-                  color: #f8fafc;
-                  font-family: Arial, Helvetica, sans-serif;
-                  overflow: hidden;
-                }}
-                .redirect {{
-                  width: 100%;
-                  height: 100vh;
-                  min-height: 940px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  padding: 28px;
-                  background: #030914;
-                }}
-                .box {{
-                  width: min(780px, 92vw);
-                  padding: 24px;
-                  text-align: center;
-                  background: #071526;
-                  border: 1px solid rgba(214,169,51,0.42);
-                  border-radius: 8px;
-                }}
-                h1 {{
-                  margin: 0;
-                  color: #f8fafc;
-                  font-size: 34px;
-                  line-height: 1.1;
-                }}
-                p {{
-                  margin: 10px 0 0;
-                  color: rgba(248,250,252,0.76);
-                  font-size: 16px;
-                  font-weight: 700;
-                }}
-                a {{
-                  display: inline-flex;
-                  align-items: center;
-                  justify-content: center;
-                  min-height: 42px;
-                  margin-top: 18px;
-                  padding: 0 16px;
-                  border: 1px solid #d6a933;
-                  border-radius: 8px;
-                  background: #0f2438;
-                  color: #f8fafc;
-                  font-size: 14px;
-                  font-weight: 900;
-                  text-decoration: none;
-                }}
-              </style>
-            </head>
-            <body>
-              <main class="redirect">
-                <section class="box">
-                  <h1>{html.escape(title)}</h1>
-                  <p>{html.escape(description)} | abrindo em tela inteira para evitar bloqueio de iframe.</p>
-                  <p>Se nao abrir automaticamente, clique abaixo.</p>
-                  <a href="{html.escape(redirect_url, quote=True)}" target="_top">Abrir Coupa agora</a>
-                </section>
-              </main>
-              <script>
-                setTimeout(() => {{
-                  window.parent.location.href = {json.dumps(redirect_url)};
-                }}, 900);
-              </script>
-            </body>
-            </html>
-            """,
-            height=1020,
-            scrolling=False,
-        )
-        return
+    return payload
+
+
+def render_tv_player(panels: list[dict], default_seconds: int) -> None:
+    panel_payload = build_panel_payload(panels, default_seconds)
+    start_index = int_param("inicio", 0, 0, max(len(panel_payload) - 1, 0))
     player_html = f"""
     <!doctype html>
     <html lang="pt-BR">
@@ -261,49 +123,53 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
         .player {{
           width: 100%;
           height: 100vh;
-          min-height: 940px;
+          min-height: 1000px;
           display: grid;
           grid-template-rows: auto 1fr;
           gap: 8px;
+          padding: 8px;
           background: #030914;
         }}
-        .tv-header {{
+        .topbar {{
           display: grid;
           grid-template-columns: 1fr auto;
-          gap: 14px;
+          gap: 12px;
           align-items: center;
-          min-height: 70px;
+          min-height: 72px;
           padding: 10px 14px;
           background: #071526;
           border: 1px solid rgba(214,169,51,0.42);
           border-radius: 8px;
         }}
-        .tv-title {{
+        .title {{
           color: #f8fafc;
           font-size: 30px;
           font-weight: 900;
           line-height: 1.05;
         }}
-        .tv-subtitle {{
-          color: rgba(248,250,252,0.74);
+        .subtitle {{
+          color: rgba(248,250,252,0.76);
           font-size: 14px;
           font-weight: 700;
           margin-top: 4px;
         }}
-        .tv-actions {{
+        .actions {{
           display: flex;
           gap: 8px;
           align-items: center;
         }}
-        .tv-button {{
+        button, a.button {{
           min-height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           padding: 0 12px;
           border: 1px solid #d6a933;
           border-radius: 8px;
           background: #0f2438;
           color: #f8fafc;
           font-size: 13px;
-          font-weight: 800;
+          font-weight: 900;
           text-decoration: none;
           cursor: pointer;
           white-space: nowrap;
@@ -313,35 +179,33 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
           min-height: 0;
           overflow: hidden;
           background: #030914;
-          border: 1px solid rgba(214,169,51,0.38);
+          border: 1px solid rgba(214,169,51,0.32);
           border-radius: 8px;
         }}
-        iframe {{
+        #panel-frame {{
           width: 100%;
           height: 100%;
           border: 0;
           background: #030914;
         }}
-        .overlay {{
+        .loading {{
           position: absolute;
           inset: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 26px;
-          background: rgba(3,9,20,0.92);
+          padding: 24px;
+          background: rgba(3,9,20,0.90);
           text-align: center;
-          z-index: 3;
+          z-index: 2;
         }}
-        .overlay.hidden {{
-          display: none;
-        }}
+        .loading.hidden {{ display: none; }}
         .box {{
           width: min(760px, 92vw);
-          padding: 22px;
+          padding: 20px;
+          background: #071526;
           border: 1px solid rgba(214,169,51,0.42);
           border-radius: 8px;
-          background: #071526;
         }}
         .box h2 {{
           margin: 0 0 8px;
@@ -354,121 +218,129 @@ def render_panel(panel: dict, seconds: int, panel_index: int, total_panels: int)
           font-size: 16px;
           line-height: 1.35;
         }}
-        .box a {{
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 38px;
-          margin-top: 14px;
-          padding: 0 12px;
-          border: 1px solid #d6a933;
-          border-radius: 8px;
-          background: #0f2438;
-          color: #f8fafc;
-          font-size: 13px;
-          font-weight: 800;
-          text-decoration: none;
+        .progress {{
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: 5px;
+          background: rgba(255,255,255,0.12);
+          z-index: 3;
+        }}
+        #progress-bar {{
+          display: block;
+          width: 0%;
+          height: 100%;
+          background: #d6a933;
         }}
       </style>
     </head>
     <body>
       <main id="player" class="player">
-        <header class="tv-header">
+        <header class="topbar">
           <div>
-            <div class="tv-title">{html.escape(title)}</div>
-            <div class="tv-subtitle">{html.escape(description)} | Atualizacao da tela: {now} | Alterna a cada {seconds}s</div>
+            <div id="title" class="title">TV Operacional</div>
+            <div id="subtitle" class="subtitle">Espelhando paineis existentes</div>
           </div>
-          <div class="tv-actions">
-            <button id="fullscreen" class="tv-button" type="button">Tela cheia</button>
-            <button id="next" class="tv-button" type="button">Proximo</button>
-            <a class="tv-button" href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">Abrir direto</a>
+          <div class="actions">
+            <button id="fullscreen" type="button">Tela cheia</button>
+            <button id="previous" type="button">Anterior</button>
+            <button id="next" type="button">Proximo</button>
+            <a id="open-direct" class="button" href="#" target="_blank" rel="noopener">Abrir direto</a>
           </div>
         </header>
         <section class="stage">
-          <iframe id="frame" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
-          <div id="overlay" class="overlay">
+          <iframe id="panel-frame" title="Painel atual" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
+          <div id="loading" class="loading">
             <div class="box">
-              <h2>Carregando painel</h2>
-              <p id="overlay-text">Tentando abrir o painel embutido.</p>
-              <a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">Abrir painel direto</a>
+              <h2 id="loading-title">Carregando painel</h2>
+              <p>O Logistv apenas espelha o painel original. Se algum app bloquear exibicao embutida, use Abrir direto.</p>
             </div>
           </div>
+          <div class="progress"><span id="progress-bar"></span></div>
         </section>
       </main>
       <script>
-        const overlay = document.getElementById("overlay");
-        const overlayText = document.getElementById("overlay-text");
-        const frame = document.getElementById("frame");
-        const player = document.getElementById("player");
-        const nextUrl = {json.dumps(next_url)};
-        const iframeUrls = {json.dumps(iframe_urls)};
-        let iframeIndex = 0;
-        let loadTimer = null;
+        const panels = {json.dumps(panel_payload, ensure_ascii=False)};
+        let index = {start_index};
+        let startedAt = Date.now();
+        let switchTimer = null;
+        let progressTimer = null;
 
-        function loadFrame(index) {{
-          iframeIndex = index;
-          overlay.classList.remove("hidden");
-          overlayText.textContent = index === 0
-            ? "Tentando abrir o painel embutido."
-            : "Tentando rota alternativa do painel.";
-          frame.src = iframeUrls[index];
-          clearTimeout(loadTimer);
-          loadTimer = setTimeout(() => {{
-            if (iframeIndex + 1 < iframeUrls.length) {{
-              loadFrame(iframeIndex + 1);
-              return;
-            }}
-            overlay.classList.remove("hidden");
-            overlayText.textContent = "Se a tela continuar branca, o Streamlit bloqueou este painel embutido. Use Abrir direto para validar o Coupa.";
-          }}, 9000);
+        const player = document.getElementById("player");
+        const frame = document.getElementById("panel-frame");
+        const title = document.getElementById("title");
+        const subtitle = document.getElementById("subtitle");
+        const openDirect = document.getElementById("open-direct");
+        const loading = document.getElementById("loading");
+        const loadingTitle = document.getElementById("loading-title");
+        const progressBar = document.getElementById("progress-bar");
+
+        function currentPanel() {{
+          return panels[(index + panels.length) % panels.length];
+        }}
+
+        function updateProgress() {{
+          const panel = currentPanel();
+          const elapsed = Date.now() - startedAt;
+          const percent = Math.min(100, elapsed / (panel.seconds * 1000) * 100);
+          progressBar.style.width = `${{percent}}%`;
+        }}
+
+        function showPanel(nextIndex) {{
+          clearTimeout(switchTimer);
+          clearInterval(progressTimer);
+          index = (nextIndex + panels.length) % panels.length;
+          const panel = currentPanel();
+          startedAt = Date.now();
+          title.textContent = panel.title;
+          subtitle.textContent = `${{panel.description}} | Espelho do painel original | Alterna a cada ${{panel.seconds}}s`;
+          openDirect.href = panel.url;
+          loadingTitle.textContent = `Carregando ${{panel.title}}`;
+          loading.classList.remove("hidden");
+          progressBar.style.width = "0%";
+          frame.src = panel.embedUrl;
+          switchTimer = setTimeout(() => showPanel(index + 1), panel.seconds * 1000);
+          progressTimer = setInterval(updateProgress, 1000);
         }}
 
         frame.addEventListener("load", () => {{
-          clearTimeout(loadTimer);
-          setTimeout(() => overlay.classList.add("hidden"), 1800);
+          setTimeout(() => loading.classList.add("hidden"), 1400);
         }});
-        document.getElementById("next").addEventListener("click", () => {{
-          window.parent.location.search = nextUrl;
-        }});
+
+        document.getElementById("next").addEventListener("click", () => showPanel(index + 1));
+        document.getElementById("previous").addEventListener("click", () => showPanel(index - 1));
         document.getElementById("fullscreen").addEventListener("click", async () => {{
           try {{
             if (document.fullscreenElement) {{
               await document.exitFullscreen();
-            }} else if (player.requestFullscreen) {{
+            }} else {{
               await player.requestFullscreen();
-            }} else if (window.frameElement && window.frameElement.requestFullscreen) {{
-              await window.frameElement.requestFullscreen();
             }}
           }} catch (error) {{
-            console.error("Nao foi possivel abrir em tela cheia", error);
+            console.error("Nao foi possivel abrir tela cheia", error);
           }}
         }});
-        setTimeout(() => {{
-          window.parent.location.search = nextUrl;
-        }}, {int(seconds) * 1000});
-        loadFrame(0);
+
+        if (panels.length) {{
+          showPanel(index);
+        }}
       </script>
     </body>
     </html>
     """
-    components.html(
-        player_html,
-        height=1020,
-        scrolling=False,
-    )
+    components.html(player_html, height=1080, scrolling=False)
 
 
 def main() -> None:
     st.set_page_config(page_title="TV Operacional", layout="wide", initial_sidebar_state="collapsed")
-    inject_css()
+    inject_shell_css()
     panels = load_panels()
     if not panels:
         st.error("Nenhum painel configurado em panels.json.")
         return
-    default_seconds = int(panels[0].get("seconds") or DEFAULT_SECONDS)
-    seconds = int_param("tempo", default_seconds, 15, 900)
-    panel_index = int_param("inicio", 0, 0, max(len(panels) - 1, 0))
-    render_panel(panels[panel_index], seconds, panel_index, len(panels))
+    default_seconds = int_param("tempo", DEFAULT_SECONDS, 15, 900)
+    render_tv_player(panels, default_seconds)
 
 
 if __name__ == "__main__":

@@ -11,12 +11,6 @@
       "title": "Coupa - Tarifas e Volumes",
       "description": "Resumo TV de saldos Coupa",
       "url": "https://controle-integrado.streamlit.app/?tv=documentos-coupa&painel=coupa",
-      "open_mode": "top_redirect",
-      "return_url": "https://logistv.streamlit.app/?inicio=0",
-      "fallback_urls": [
-        "https://controle-integrado.streamlit.app/?embed=true&tv=documentos-coupa&painel=coupa",
-        "https://controle-integrado.streamlit.app/?tv=documentos-coupa&painel=coupa&controles=1"
-      ],
       "seconds": 60,
       "enabled": true
     }
