@@ -48,8 +48,6 @@ def add_streamlit_embed_params(url: str) -> str:
     keys = {key for key, _ in query_items}
     if "embed" not in keys:
         query_items.insert(0, ("embed", "true"))
-    if "embed_options" not in keys:
-        query_items.insert(1, ("embed_options", "disable_scrolling"))
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment))
 
 
