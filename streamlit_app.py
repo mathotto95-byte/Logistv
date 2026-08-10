@@ -340,11 +340,14 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         }}
 
         function initialIndex(defaultIndex) {{
-          const saved = Number(storageGet("lastIndex", defaultIndex));
-          if (Number.isFinite(saved) && panels.length) {{
-            return Math.max(0, Math.min(panels.length - 1, Math.trunc(saved)));
+          if (!panels.length) {{
+            return 0;
           }}
-          return defaultIndex;
+          const requested = Number(defaultIndex);
+          if (Number.isFinite(requested)) {{
+            return Math.max(0, Math.min(panels.length - 1, Math.trunc(requested)));
+          }}
+          return 0;
         }}
 
         function panelStorageKey(panel) {{
@@ -383,7 +386,6 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           clearInterval(progressTimer);
           index = (nextIndex + panels.length) % panels.length;
           const panel = currentPanel();
-          storageSet("lastIndex", index);
           startedAt = Date.now();
           applyZoom(savedZoomFor(panel), false);
           openDirect.href = panel.url;
