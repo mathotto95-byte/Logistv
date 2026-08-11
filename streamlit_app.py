@@ -137,10 +137,11 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         .topbar {{
           position: absolute;
           top: 6px;
+          left: 6px;
           right: 6px;
           z-index: 5;
           display: flex;
-          justify-content: flex-end;
+          justify-content: space-between;
           gap: 6px;
           align-items: center;
           min-height: 34px;
@@ -156,9 +157,12 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         }}
         .title {{
           color: #f8fafc;
-          font-size: 30px;
+          font-size: 16px;
           font-weight: 900;
           line-height: 1.05;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }}
         .subtitle {{
           color: rgba(248,250,252,0.76);
@@ -276,6 +280,9 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
     <body>
       <main id="player" class="player">
         <header class="topbar">
+          <div>
+            <div id="panel-title" class="title">LogisTV</div>
+          </div>
           <div class="actions">
             <button id="fullscreen" type="button">Tela cheia</button>
             <button id="previous" type="button">Anterior</button>
@@ -313,6 +320,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         const openDirect = document.getElementById("open-direct");
         const loading = document.getElementById("loading");
         const loadingTitle = document.getElementById("loading-title");
+        const panelTitle = document.getElementById("panel-title");
         const progressBar = document.getElementById("progress-bar");
         const zoomBadge = document.getElementById("zoom-badge");
 
@@ -388,6 +396,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           const panel = currentPanel();
           startedAt = Date.now();
           applyZoom(savedZoomFor(panel), false);
+          panelTitle.textContent = `${{panel.title}} | ${{panel.seconds}}s`;
           openDirect.href = panel.url;
           loadingTitle.textContent = "Carregando painel";
           loading.classList.remove("hidden");

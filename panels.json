@@ -1,14 +1,6 @@
 {
   "panels": [
     {
-      "title": "Documentos RW",
-      "description": "Vencimentos proximos",
-      "url": "https://documentosrw-ibfyqqvrsxzawehbbiq8ge.streamlit.app/?painel=documentos&embed_tv=1",
-      "zoom": 0.86,
-      "seconds": 60,
-      "enabled": true
-    },
-    {
       "title": "Coupa - 1 - Retirar",
       "description": "Rotas com saldo maior que 42",
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-retirar",
