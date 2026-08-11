@@ -9,11 +9,27 @@
       "enabled": true
     },
     {
-      "title": "Coupa - Tarifas e Volumes",
-      "description": "Resumo TV de saldos Coupa",
-      "url": "https://controle-integrado.streamlit.app/?tv=documentos-coupa&painel=coupa",
-      "zoom": 0.78,
-      "seconds": 60,
+      "title": "Coupa - 1 - Retirar",
+      "description": "Rotas com saldo maior que 42",
+      "url": "https://controle-integrado.streamlit.app/?tv=coupa-retirar",
+      "zoom": 0.92,
+      "seconds": 30,
+      "enabled": true
+    },
+    {
+      "title": "Coupa - 2 - Aguardando Liberar",
+      "description": "Rotas com Qtd e sem usado",
+      "url": "https://controle-integrado.streamlit.app/?tv=coupa-aguardando",
+      "zoom": 0.92,
+      "seconds": 30,
+      "enabled": true
+    },
+    {
+      "title": "Coupa - 3 - Saldo Finalizado",
+      "description": "Rotas com saldo menor que 42",
+      "url": "https://controle-integrado.streamlit.app/?tv=coupa-finalizado",
+      "zoom": 0.92,
+      "seconds": 30,
       "enabled": true
     }
   ]
