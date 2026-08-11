@@ -389,6 +389,12 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           applyZoom(Math.round((activeZoom + delta) * 100) / 100);
         }}
 
+        function freshUrl(url) {{
+          const parsed = new URL(url, window.location.href);
+          parsed.searchParams.set("_tv_refresh", String(Date.now()));
+          return parsed.toString();
+        }}
+
         function showPanel(nextIndex) {{
           clearTimeout(switchTimer);
           clearInterval(progressTimer);
@@ -401,7 +407,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           loadingTitle.textContent = "Carregando painel";
           loading.classList.remove("hidden");
           progressBar.style.width = "0%";
-          frame.src = panel.embedUrl;
+          frame.src = freshUrl(panel.embedUrl);
           switchTimer = setTimeout(() => showPanel(index + 1), panel.seconds * 1000);
           progressTimer = setInterval(updateProgress, 1000);
         }}
