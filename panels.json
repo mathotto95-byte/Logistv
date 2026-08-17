@@ -2,10 +2,18 @@
   "panels": [
     {
       "title": "Documentos RW",
-      "description": "Vencimentos proximos",
+      "description": "Vencidos e vencimentos proximos",
       "url": "https://documentosrw-ibfyqqvrsxzawehbbiq8ge.streamlit.app/?painel=documentos&embed_tv=1",
       "zoom": 0.86,
       "seconds": 90,
+      "enabled": true
+    },
+    {
+      "title": "Manutencao Programada",
+      "description": "Placas em manutencao e data de saida",
+      "url": "https://documentosrw-ibfyqqvrsxzawehbbiq8ge.streamlit.app/?painel=manutencao&embed_tv=1",
+      "zoom": 0.86,
+      "seconds": 60,
       "enabled": true
     },
     {
