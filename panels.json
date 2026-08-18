@@ -21,6 +21,16 @@
       "enabled": true
     },
     {
+      "title": "Motoristas RW",
+      "description": "Folgas em casa, folgas no veiculo e ferias",
+      "url": "https://motoristasrw.streamlit.app/?painel=motoristas&embed_tv=1",
+      "group": "MotoristasRW",
+      "audiences": ["diretoria"],
+      "zoom": 0.92,
+      "seconds": 60,
+      "enabled": true
+    },
+    {
       "title": "Coupa - 1 - Retirar",
       "description": "Rotas com saldo maior que 42",
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-retirar",
