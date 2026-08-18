@@ -211,8 +211,17 @@
   <script>
     const DEFAULT_SECONDS = 60;
     const FRAME_TIMEOUT_SECONDS = 18;
+    const DEFAULT_ACCESS = "publico";
+    const ACCESS_ALIASES = {
+      publico: "publico",
+      public: "publico",
+      diretoria: "diretoria",
+      directoria: "diretoria",
+      diretor: "diretoria"
+    };
     const state = {
       panels: [],
+      access: DEFAULT_ACCESS,
       index: 0,
       startedAt: Date.now(),
       currentSeconds: DEFAULT_SECONDS,
@@ -238,6 +247,30 @@
 
     function queryValue(name, fallback = "") {
       return new URLSearchParams(window.location.search).get(name) || fallback;
+    }
+
+    function selectedAccess() {
+      const value = queryValue("acesso", DEFAULT_ACCESS).trim().toLowerCase();
+      return ACCESS_ALIASES[value] || DEFAULT_ACCESS;
+    }
+
+    function normalizeAudience(value) {
+      const normalized = String(value || "").trim().toLowerCase();
+      return ACCESS_ALIASES[normalized] || normalized;
+    }
+
+    function panelAudiences(panel) {
+      if (!panel.audiences) {
+        return ["publico", "diretoria"];
+      }
+      if (Array.isArray(panel.audiences)) {
+        return panel.audiences.map(normalizeAudience);
+      }
+      return String(panel.audiences).split(",").map(normalizeAudience);
+    }
+
+    function panelAllowed(panel) {
+      return panelAudiences(panel).includes(state.access);
     }
 
     function cacheBustedUrl(url) {
@@ -310,7 +343,8 @@
           throw new Error(`HTTP ${response.status}`);
         }
         const data = await response.json();
-        state.panels = Array.isArray(data.panels) ? data.panels.filter(panel => panel.enabled !== false && panel.url) : [];
+        state.access = selectedAccess();
+        state.panels = Array.isArray(data.panels) ? data.panels.filter(panel => panel.enabled !== false && panel.url && panelAllowed(panel)) : [];
         selectPanel(Number(queryValue("inicio", "0")) || 0);
       } catch (error) {
         showOverlay("Nao foi possivel carregar a TV", `Falha ao ler panels.json: ${error.message}`, "#");

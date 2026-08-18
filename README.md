@@ -11,8 +11,15 @@ Projeto estatico para exibir paineis operacionais na TV sem depender de outro ap
 
 ## Paineis configurados
 
-- Documentos RW: vencimentos proximos.
-- Controle Integrado: Coupa - Tarifas e Volumes.
+- Publico: paineis MotoristasRW.
+- Diretoria: paineis MotoristasRW e Controle Integrado Coupa.
+
+## Links de acesso
+
+- Publico: `https://logistv.streamlit.app/`
+- Diretoria: `https://logistv.streamlit.app/?acesso=diretoria`
+
+O link sem parametro, ou com `?acesso=publico`, mostra apenas os paineis publicos.
 
 ## Publicacao no Streamlit Cloud
 
@@ -35,5 +42,7 @@ Use estes campos:
 
 ## Parametros
 
+- `?acesso=publico`: mostra somente os paineis publicos.
+- `?acesso=diretoria`: mostra os paineis publicos e os paineis da diretoria.
 - `?tempo=90`: altera o tempo padrao para 90 segundos quando o painel nao tiver `seconds`.
 - `?inicio=1`: inicia pelo segundo painel da lista.

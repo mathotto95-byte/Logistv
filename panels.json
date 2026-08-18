@@ -4,6 +4,8 @@
       "title": "Documentos RW",
       "description": "Vencidos e vencimentos proximos",
       "url": "https://documentosrw.streamlit.app/?painel=documentos&embed_tv=1",
+      "group": "MotoristasRW",
+      "audiences": ["publico", "diretoria"],
       "zoom": 0.86,
       "seconds": 90,
       "enabled": true
@@ -12,6 +14,8 @@
       "title": "Manutencao Programada",
       "description": "Placas em manutencao e previsao de saida",
       "url": "https://documentosrw.streamlit.app/?painel=manutencao&embed_tv=1",
+      "group": "MotoristasRW",
+      "audiences": ["publico", "diretoria"],
       "zoom": 0.86,
       "seconds": 60,
       "enabled": true
@@ -20,6 +24,8 @@
       "title": "Coupa - 1 - Retirar",
       "description": "Rotas com saldo maior que 42",
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-retirar",
+      "group": "Diretoria",
+      "audiences": ["diretoria"],
       "zoom": 0.92,
       "seconds": 30,
       "enabled": true
@@ -28,6 +34,8 @@
       "title": "Coupa - 2 - Aguardando Liberar",
       "description": "Rotas com Qtd e sem usado",
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-aguardando",
+      "group": "Diretoria",
+      "audiences": ["diretoria"],
       "zoom": 0.92,
       "seconds": 30,
       "enabled": true
@@ -36,6 +44,8 @@
       "title": "Coupa - 3 - Saldo Finalizado",
       "description": "Rotas com saldo menor que 42",
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-finalizado",
+      "group": "Diretoria",
+      "audiences": ["diretoria"],
       "zoom": 0.92,
       "seconds": 30,
       "enabled": true

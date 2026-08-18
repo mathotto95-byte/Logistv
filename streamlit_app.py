@@ -11,6 +11,14 @@ import streamlit.components.v1 as components
 APP_DIR = Path(__file__).resolve().parent
 PANELS_PATH = APP_DIR / "panels.json"
 DEFAULT_SECONDS = 60
+DEFAULT_ACCESS = "publico"
+ACCESS_ALIASES = {
+    "publico": "publico",
+    "public": "publico",
+    "diretoria": "diretoria",
+    "directoria": "diretoria",
+    "diretor": "diretoria",
+}
 
 
 def query_param(name: str, default: str = "") -> str:
@@ -28,7 +36,25 @@ def int_param(name: str, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, int(value)))
 
 
-def load_panels() -> list[dict]:
+def selected_access() -> str:
+    value = query_param("acesso", DEFAULT_ACCESS).strip().lower()
+    return ACCESS_ALIASES.get(value, DEFAULT_ACCESS)
+
+
+def normalize_audiences(panel: dict) -> set[str]:
+    audiences = panel.get("audiences", ["publico", "diretoria"])
+    if isinstance(audiences, str):
+        audiences = [item.strip() for item in audiences.split(",")]
+    if not isinstance(audiences, list):
+        audiences = [DEFAULT_ACCESS]
+    return {ACCESS_ALIASES.get(str(item).strip().lower(), str(item).strip().lower()) for item in audiences}
+
+
+def panel_allowed(panel: dict, access: str) -> bool:
+    return access in normalize_audiences(panel)
+
+
+def load_panels(access: str) -> list[dict]:
     if not PANELS_PATH.exists():
         return []
     data = json.loads(PANELS_PATH.read_text(encoding="utf-8"))
@@ -39,6 +65,7 @@ def load_panels() -> list[dict]:
         if isinstance(panel, dict)
         and panel.get("enabled", True) is not False
         and str(panel.get("url", "")).strip()
+        and panel_allowed(panel, access)
     ]
 
 
@@ -450,9 +477,10 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
 def main() -> None:
     st.set_page_config(page_title="TV Operacional", layout="wide", initial_sidebar_state="collapsed")
     inject_shell_css()
-    panels = load_panels()
+    access = selected_access()
+    panels = load_panels(access)
     if not panels:
-        st.error("Nenhum painel configurado em panels.json.")
+        st.error(f"Nenhum painel configurado para o acesso: {access}.")
         return
     default_seconds = int_param("tempo", DEFAULT_SECONDS, 15, 900)
     render_tv_player(panels, default_seconds)
