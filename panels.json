@@ -35,7 +35,7 @@
       "description": "Painel geral de saldo, retirado e rotas",
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-geral",
       "group": "Diretoria",
-      "audiences": ["diretoria"],
+      "audiences": ["publico", "diretoria"],
       "zoom": 0.9,
       "seconds": 60,
       "enabled": true

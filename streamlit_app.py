@@ -1,5 +1,7 @@
 import html
+import hmac
 import json
+import os
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -12,6 +14,7 @@ APP_DIR = Path(__file__).resolve().parent
 PANELS_PATH = APP_DIR / "panels.json"
 DEFAULT_SECONDS = 60
 DEFAULT_ACCESS = "publico"
+MANAGER_PARAM_VALUES = {"1", "true", "sim", "admin", "gerenciar"}
 ACCESS_ALIASES = {
     "publico": "publico",
     "public": "publico",
@@ -36,6 +39,10 @@ def int_param(name: str, default: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(maximum, int(value)))
 
 
+def bool_param(name: str) -> bool:
+    return query_param(name).strip().lower() in MANAGER_PARAM_VALUES
+
+
 def selected_access() -> str:
     value = query_param("acesso", DEFAULT_ACCESS).strip().lower()
     return ACCESS_ALIASES.get(value, DEFAULT_ACCESS)
@@ -54,10 +61,26 @@ def panel_allowed(panel: dict, access: str) -> bool:
     return access in normalize_audiences(panel)
 
 
-def load_panels(access: str) -> list[dict]:
+def load_panels_data() -> dict:
     if not PANELS_PATH.exists():
-        return []
+        return {"panels": []}
     data = json.loads(PANELS_PATH.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {"panels": []}
+    if not isinstance(data.get("panels"), list):
+        data["panels"] = []
+    return data
+
+
+def save_panels_data(data: dict) -> None:
+    PANELS_PATH.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def load_panels(access: str) -> list[dict]:
+    data = load_panels_data()
     panels = data.get("panels", [])
     return [
         panel
@@ -76,6 +99,153 @@ def add_streamlit_embed_params(url: str) -> str:
     if "embed" not in keys:
         query_items.insert(0, ("embed", "true"))
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment))
+
+
+def admin_password() -> str:
+    try:
+        secret_value = st.secrets.get("LOGISTV_ADMIN_PASSWORD", "")
+    except Exception:
+        secret_value = ""
+    return str(secret_value or os.environ.get("LOGISTV_ADMIN_PASSWORD", "")).strip()
+
+
+def manager_is_unlocked() -> bool:
+    password = admin_password()
+    if not password:
+        st.warning("Gerenciador sem senha configurada. Para proteger, defina LOGISTV_ADMIN_PASSWORD nos Secrets do Streamlit.")
+        return True
+    if st.session_state.get("manager_unlocked"):
+        return True
+    with st.form("manager_login"):
+        typed = st.text_input("Senha do gerenciador", type="password")
+        submitted = st.form_submit_button("Entrar", type="primary")
+    if submitted and hmac.compare_digest(typed, password):
+        st.session_state["manager_unlocked"] = True
+        st.rerun()
+    elif submitted:
+        st.error("Senha incorreta.")
+    return False
+
+
+def audiences_from_flags(publico: bool, diretoria: bool) -> list[str]:
+    audiences = []
+    if publico:
+        audiences.append("publico")
+    if diretoria:
+        audiences.append("diretoria")
+    return audiences or [DEFAULT_ACCESS]
+
+
+def panels_to_editor_rows(panels: list[dict]) -> list[dict]:
+    rows = []
+    for panel in panels:
+        audiences = normalize_audiences(panel)
+        rows.append(
+            {
+                "Ativo": panel.get("enabled", True) is not False,
+                "Titulo": str(panel.get("title") or ""),
+                "Grupo": str(panel.get("group") or ""),
+                "Publico": "publico" in audiences,
+                "Diretoria": "diretoria" in audiences,
+                "Segundos": int(pd.to_numeric(pd.Series([panel.get("seconds", DEFAULT_SECONDS)]), errors="coerce").fillna(DEFAULT_SECONDS).iloc[0]),
+                "Zoom": float(pd.to_numeric(pd.Series([panel.get("zoom", 0.9)]), errors="coerce").fillna(0.9).iloc[0]),
+                "URL": str(panel.get("url") or ""),
+                "Descricao": str(panel.get("description") or ""),
+            }
+        )
+    return rows
+
+
+def editor_rows_to_panels(rows: pd.DataFrame) -> list[dict]:
+    panels = []
+    for row in rows.to_dict(orient="records"):
+        title = str(row.get("Titulo") or "").strip()
+        url = str(row.get("URL") or "").strip()
+        if not title and not url:
+            continue
+        seconds = int(pd.to_numeric(pd.Series([row.get("Segundos", DEFAULT_SECONDS)]), errors="coerce").fillna(DEFAULT_SECONDS).iloc[0])
+        zoom = float(pd.to_numeric(pd.Series([row.get("Zoom", 0.9)]), errors="coerce").fillna(0.9).iloc[0])
+        panels.append(
+            {
+                "title": title or "Painel",
+                "description": str(row.get("Descricao") or "").strip(),
+                "url": url,
+                "group": str(row.get("Grupo") or "").strip(),
+                "audiences": audiences_from_flags(bool(row.get("Publico")), bool(row.get("Diretoria"))),
+                "zoom": max(0.5, min(1.25, zoom)),
+                "seconds": max(15, min(900, seconds)),
+                "enabled": bool(row.get("Ativo")),
+            }
+        )
+    return panels
+
+
+def render_manager() -> None:
+    st.markdown(
+        """
+        <style>
+        .block-container {max-width: 1180px; padding-top: 1.5rem;}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.title("Gerenciar acessos da LogisTV")
+    st.caption("Marque em qual link cada painel deve aparecer. O link sem parametro usa o acesso Publico.")
+    if not manager_is_unlocked():
+        return
+
+    data = load_panels_data()
+    rows = panels_to_editor_rows(data.get("panels", []))
+    edited = st.data_editor(
+        pd.DataFrame(rows),
+        use_container_width=True,
+        hide_index=True,
+        num_rows="dynamic",
+        column_config={
+            "Ativo": st.column_config.CheckboxColumn("Ativo"),
+            "Publico": st.column_config.CheckboxColumn("Publico"),
+            "Diretoria": st.column_config.CheckboxColumn("Diretoria"),
+            "Segundos": st.column_config.NumberColumn("Segundos", min_value=15, max_value=900, step=15),
+            "Zoom": st.column_config.NumberColumn("Zoom", min_value=0.5, max_value=1.25, step=0.01),
+            "URL": st.column_config.LinkColumn("URL"),
+        },
+        key="panels_access_editor",
+    )
+
+    edited_panels = editor_rows_to_panels(edited)
+    edited_payload = {"panels": edited_panels}
+    edited_json = json.dumps(edited_payload, ensure_ascii=False, indent=2) + "\n"
+
+    c1, c2, c3 = st.columns([1, 1, 2])
+    if c1.button("Salvar acessos", type="primary", use_container_width=True):
+        invalid = [panel["title"] for panel in edited_panels if panel.get("enabled") and not panel.get("url")]
+        if invalid:
+            st.error("Painel ativo sem URL: " + ", ".join(invalid))
+        else:
+            save_panels_data(edited_payload)
+            st.success("Acessos salvos. Recarregue a TV para aplicar imediatamente.")
+            st.rerun()
+    if c2.button("Recarregar arquivo", use_container_width=True):
+        st.rerun()
+    c3.download_button(
+        "Baixar panels.json",
+        edited_json,
+        "panels.json",
+        "application/json",
+        use_container_width=True,
+    )
+
+    st.markdown("**Links**")
+    st.markdown("- Publico: https://logistv.streamlit.app/")
+    st.markdown("- Diretoria: https://logistv.streamlit.app/?acesso=diretoria")
+
+    preview_cols = st.columns(2)
+    for col, access in zip(preview_cols, ["publico", "diretoria"]):
+        with col:
+            visible = [panel.get("title", "Painel") for panel in edited_panels if panel_allowed(panel, access) and panel.get("enabled", True)]
+            st.subheader(access.title())
+            st.write(f"{len(visible)} painel(is)")
+            st.write(visible)
 
 
 def inject_shell_css() -> None:
@@ -476,6 +646,9 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="TV Operacional", layout="wide", initial_sidebar_state="collapsed")
+    if bool_param("gerenciar") or bool_param("admin"):
+        render_manager()
+        return
     inject_shell_css()
     access = selected_access()
     panels = load_panels(access)

@@ -11,15 +11,18 @@ Projeto estatico para exibir paineis operacionais na TV sem depender de outro ap
 
 ## Paineis configurados
 
-- Publico: paineis MotoristasRW.
+- Publico: paineis MotoristasRW e Coupa - Tarifas e Volumes IPP.
 - Diretoria: paineis MotoristasRW e Controle Integrado Coupa.
 
 ## Links de acesso
 
 - Publico: `https://logistv.streamlit.app/`
 - Diretoria: `https://logistv.streamlit.app/?acesso=diretoria`
+- Gerenciar acessos: `https://logistv.streamlit.app/?gerenciar=1`
 
-O link sem parametro, ou com `?acesso=publico`, mostra apenas os paineis publicos.
+O link sem parametro, ou com `?acesso=publico`, mostra os paineis publicos.
+Para proteger o gerenciador, configure o secret `LOGISTV_ADMIN_PASSWORD` no Streamlit Cloud.
+Use o botao `Baixar panels.json` no gerenciador para guardar uma copia da configuracao atualizada.
 
 ## Publicacao no Streamlit Cloud
 
