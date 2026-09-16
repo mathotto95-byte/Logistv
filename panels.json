@@ -6,7 +6,7 @@
       "url": "https://documentosrw.streamlit.app/?painel=documentos&embed_tv=1",
       "group": "MotoristasRW",
       "audiences": ["publico", "diretoria"],
-      "zoom": 0.86,
+      "zoom": 1.0,
       "seconds": 90,
       "enabled": true
     },
@@ -16,7 +16,7 @@
       "url": "https://documentosrw.streamlit.app/?painel=manutencao&embed_tv=1",
       "group": "MotoristasRW",
       "audiences": ["publico", "diretoria"],
-      "zoom": 0.86,
+      "zoom": 1.0,
       "seconds": 60,
       "enabled": true
     },
@@ -26,7 +26,7 @@
       "url": "https://motoristasrw.streamlit.app/?painel=motoristas&embed_tv=1",
       "group": "MotoristasRW",
       "audiences": ["diretoria"],
-      "zoom": 0.92,
+      "zoom": 1.0,
       "seconds": 60,
       "enabled": true
     },
@@ -36,7 +36,7 @@
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-geral",
       "group": "Diretoria",
       "audiences": ["publico", "diretoria"],
-      "zoom": 0.9,
+      "zoom": 1.0,
       "seconds": 60,
       "enabled": true
     },
@@ -46,7 +46,7 @@
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-retirar",
       "group": "Diretoria",
       "audiences": ["diretoria"],
-      "zoom": 0.92,
+      "zoom": 1.0,
       "seconds": 30,
       "enabled": true
     },
@@ -56,7 +56,7 @@
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-aguardando",
       "group": "Diretoria",
       "audiences": ["diretoria"],
-      "zoom": 0.92,
+      "zoom": 1.0,
       "seconds": 30,
       "enabled": true
     },
@@ -66,7 +66,7 @@
       "url": "https://controle-integrado.streamlit.app/?tv=coupa-finalizado",
       "group": "Diretoria",
       "audiences": ["diretoria"],
-      "zoom": 0.92,
+      "zoom": 1.0,
       "seconds": 30,
       "enabled": true
     }

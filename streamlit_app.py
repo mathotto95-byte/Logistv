@@ -148,7 +148,7 @@ def panels_to_editor_rows(panels: list[dict]) -> list[dict]:
                 "Publico": "publico" in audiences,
                 "Diretoria": "diretoria" in audiences,
                 "Segundos": int(pd.to_numeric(pd.Series([panel.get("seconds", DEFAULT_SECONDS)]), errors="coerce").fillna(DEFAULT_SECONDS).iloc[0]),
-                "Zoom": float(pd.to_numeric(pd.Series([panel.get("zoom", 0.9)]), errors="coerce").fillna(0.9).iloc[0]),
+                "Zoom": float(pd.to_numeric(pd.Series([panel.get("zoom", 1.0)]), errors="coerce").fillna(1.0).iloc[0]),
                 "URL": str(panel.get("url") or ""),
                 "Descricao": str(panel.get("description") or ""),
             }
@@ -164,7 +164,7 @@ def editor_rows_to_panels(rows: pd.DataFrame) -> list[dict]:
         if not title and not url:
             continue
         seconds = int(pd.to_numeric(pd.Series([row.get("Segundos", DEFAULT_SECONDS)]), errors="coerce").fillna(DEFAULT_SECONDS).iloc[0])
-        zoom = float(pd.to_numeric(pd.Series([row.get("Zoom", 0.9)]), errors="coerce").fillna(0.9).iloc[0])
+        zoom = float(pd.to_numeric(pd.Series([row.get("Zoom", 1.0)]), errors="coerce").fillna(1.0).iloc[0])
         panels.append(
             {
                 "title": title or "Painel",
@@ -291,7 +291,7 @@ def build_panel_payload(panels: list[dict], default_seconds: int) -> list[dict]:
                 "url": str(panel.get("url") or ""),
                 "embedUrl": add_streamlit_embed_params(str(panel.get("url") or "")),
                 "seconds": max(15, min(900, seconds)),
-                "zoom": max(0.5, min(1.25, float(pd.to_numeric(pd.Series([panel.get("zoom", 0.82)]), errors="coerce").fillna(0.82).iloc[0]))),
+                "zoom": max(0.5, min(1.25, float(pd.to_numeric(pd.Series([panel.get("zoom", 1.0)]), errors="coerce").fillna(1.0).iloc[0]))),
             }
         )
     return payload
@@ -425,7 +425,9 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
           height: 100%;
           border: 0;
           background: #030914;
+          transform: none;
           transform-origin: top left;
+          image-rendering: auto;
         }}
         .loading {{
           position: absolute;
@@ -505,7 +507,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
       </main>
       <script>
         const panels = {json.dumps(panel_payload, ensure_ascii=False)};
-        const storagePrefix = "logistv:v1:";
+        const storagePrefix = "logistv:v2:";
         let index = initialIndex({start_index});
         let startedAt = Date.now();
         let switchTimer = null;
@@ -561,7 +563,7 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
 
         function savedZoomFor(panel) {{
           const saved = Number(storageGet(panelStorageKey(panel), ""));
-          return Number.isFinite(saved) && saved > 0 ? saved : Number(panel.zoom || 0.82);
+          return Number.isFinite(saved) && saved > 0 ? saved : Number(panel.zoom || 1);
         }}
 
         function updateProgress() {{
@@ -572,8 +574,9 @@ def render_tv_player(panels: list[dict], default_seconds: int) -> None:
         }}
 
         function applyZoom(zoom, persist = true) {{
-          activeZoom = Math.max(0.5, Math.min(1.25, Number(zoom) || 0.82));
-          frame.style.transform = `scale(${{activeZoom}})`;
+          activeZoom = Math.max(0.5, Math.min(1.25, Number(zoom) || 1));
+          frame.style.transform = "none";
+          frame.style.zoom = String(activeZoom);
           frame.style.width = `${{100 / activeZoom}}%`;
           frame.style.height = `${{100 / activeZoom}}%`;
           zoomBadge.textContent = `${{Math.round(activeZoom * 100)}}%`;

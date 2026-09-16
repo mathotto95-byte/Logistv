@@ -23,6 +23,7 @@ Projeto estatico para exibir paineis operacionais na TV sem depender de outro ap
 O link sem parametro, ou com `?acesso=publico`, mostra os paineis publicos.
 Para proteger o gerenciador, configure o secret `LOGISTV_ADMIN_PASSWORD` no Streamlit Cloud.
 Use o botao `Baixar panels.json` no gerenciador para guardar uma copia da configuracao atualizada.
+Para melhor nitidez na TV, mantenha `Zoom` em `1.0` sempre que possivel.
 
 ## Publicacao no Streamlit Cloud
 
