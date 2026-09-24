@@ -9,6 +9,8 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from rw_theme import apply_theme, render_brand_header
+
 
 APP_DIR = Path(__file__).resolve().parent
 PANELS_PATH = APP_DIR / "panels.json"
@@ -189,8 +191,8 @@ def render_manager() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.title("Gerenciar acessos da LogisTV")
-    st.caption("Marque em qual link cada painel deve aparecer. O link sem parametro usa o acesso Publico.")
+    apply_theme(Path(__file__).resolve().parent / "assets" / "rodo_wall_logo.png")
+    render_brand_header("Gerenciar acessos da LogisTV", "Marque em qual link cada painel deve aparecer. O link sem parametro usa o acesso Publico.")
     if not manager_is_unlocked():
         return
 
